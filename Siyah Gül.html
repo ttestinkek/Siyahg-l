@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Siyah Gül</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,400&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: radial-gradient(circle at 50% 35%, #120a15 0%, #070309 58%, #040205 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #f8fafc;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .serif-title {
+            font-family: 'Cormorant Garamond', Georgia, serif;
+        }
+
+        #canvas-wrap {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            touch-action: none;
+            cursor: grab;
+        }
+
+        #canvas-wrap:active {
+            cursor: grabbing;
+        }
+
+        .ambient-halo {
+            position: fixed;
+            top: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(72vw, 400px);
+            height: min(72vw, 400px);
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(148, 163, 184, 0.1) 0%, rgba(42, 4, 14, 0.13) 48%, transparent 74%);
+            filter: blur(24px);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .vignette {
+            position: fixed;
+            inset: 0;
+            box-shadow: inset 0 0 110px rgba(0, 0, 0, 0.9);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .btn-glass {
+            background: rgba(14, 9, 18, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75);
+            transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+            pointer-events: auto;
+            touch-action: manipulation;
+        }
+
+        .btn-glass:hover {
+            background: rgba(38, 6, 16, 0.85);
+            border-color: rgba(244, 63, 94, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .btn-glass:active {
+            transform: scale(0.96);
+        }
+
+        .modal-surface {
+            background: rgba(12, 8, 15, 0.94);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.92);
+        }
+
+        .fade-text {
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 1.3s ease, transform 1.3s ease;
+        }
+
+        .fade-text.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        textarea {
+            user-select: text;
+            -webkit-user-select: text;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-wrap"></div>
+    <div class="ambient-halo"></div>
+    <div class="vignette"></div>
+
+    <div id="headerText" class="fade-text fixed top-[13%] sm:top-[14%] inset-x-0 z-20 text-center px-6 pointer-events-none">
+        <p class="serif-title italic text-2xl sm:text-3xl md:text-[34px] text-slate-100/95 tracking-wide drop-shadow-[0_0_18px_rgba(226,232,240,0.35)]">
+            Sanırım siyah gülleri seviyorsun...
+        </p>
+    </div>
+
+    <footer class="fixed bottom-6 sm:bottom-8 inset-x-0 z-50 flex justify-center items-center gap-3.5 px-4 pointer-events-none">
+        <button id="replayBtn" type="button" class="btn-glass px-5 py-3 rounded-full text-slate-100 text-xs sm:text-sm font-medium tracking-wider uppercase cursor-pointer">
+            Tekrar Yüksel
+        </button>
+
+        <button id="wishBtn" type="button" class="btn-glass px-5 py-3 rounded-full text-slate-100 text-xs sm:text-sm font-medium tracking-wider uppercase cursor-pointer">
+            Dilek Tut
+        </button>
+    </footer>
+
+    <div id="wishModal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div id="wishCard" class="modal-surface w-full max-w-sm rounded-2xl p-6 text-slate-100 relative">
+            <button id="closeBtn" type="button" aria-label="Kapat" class="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-white rounded-full cursor-pointer">
+                <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+
+            <h2 class="text-lg font-medium text-slate-100 mb-4">Dilek Tut</h2>
+
+            <div class="space-y-3.5">
+                <textarea id="wishInput" rows="4" maxlength="300"
+                    class="w-full p-3.5 rounded-xl bg-black/60 border border-white/15 focus:border-white/35 focus:outline-none text-sm text-slate-100 resize-none transition"></textarea>
+
+                <button id="sendBtn" type="button" class="w-full py-3 px-4 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-sm font-medium tracking-wider uppercase text-slate-100 transition cursor-pointer">
+                    Gönder
+                </button>
+
+                <p id="statusMsg" class="text-center text-xs text-slate-300 min-h-[1.25rem] flex items-center justify-center"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const wrap = document.getElementById('canvas-wrap');
+            const headerText = document.getElementById('headerText');
+            const replayBtn = document.getElementById('replayBtn');
+            const wishBtn = document.getElementById('wishBtn');
+            const wishModal = document.getElementById('wishModal');
+            const wishCard = document.getElementById('wishCard');
+            const closeBtn = document.getElementById('closeBtn');
+            const wishInput = document.getElementById('wishInput');
+            const sendBtn = document.getElementById('sendBtn');
+            const statusMsg = document.getElementById('statusMsg');
+
+            const scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x040205, 0.032);
+
+            const camera = new THREE.PerspectiveCamera(38, window.innerWidth / window.innerHeight, 0.1, 60);
+            camera.position.set(0, 1.35, 8.3);
+            camera.lookAt(0, 0.72, 0);
+
+            const renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: true,
+                powerPreference: 'high-performance'
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.24;
+            wrap.appendChild(renderer.domElement);
+
+            scene.add(new THREE.AmbientLight(0x16141c, 1.45));
+
+            const rimLight = new THREE.DirectionalLight(0xe2e8f0, 3.1);
+            rimLight.position.set(-3.4, 7.0, -3.5);
+            scene.add(rimLight);
+
+            const keyLight = new THREE.DirectionalLight(0xf1f5f9, 1.9);
+            keyLight.position.set(2.8, 5.4, 4.8);
+            scene.add(keyLight);
+
+            const sideLight = new THREE.PointLight(0xcbd5e1, 2.2, 14, 1.5);
+            sideLight.position.set(3.2, 2.2, -1.8);
+            scene.add(sideLight);
+
+            const edgeLight = new THREE.PointLight(0x4c0519, 1.35, 11, 1.6);
+            edgeLight.position.set(0.3, 0.2, 2.8);
+            scene.add(edgeLight);
+
+            function buildVelvetTextures() {
+                const size = 256;
+                const colorCanvas = document.createElement('canvas');
+                colorCanvas.width = size;
+                colorCanvas.height = size;
+                const ctx = colorCanvas.getContext('2d');
+
+                const grad = ctx.createLinearGradient(0, size, 0, 0);
+                grad.addColorStop(0.0, '#030103');
+                grad.addColorStop(0.55, '#060206');
+                grad.addColorStop(0.88, '#0a0308');
+                grad.addColorStop(0.96, '#18030a');
+                grad.addColorStop(1.0, '#2a040e');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, size, size);
+
+                for (let i = 0; i < 1100; i++) {
+                    const x = Math.random() * size;
+                    const y = Math.random() * size;
+                    ctx.strokeStyle = i % 2 === 0 ? 'rgba(226, 232, 240, 0.024)' : 'rgba(0, 0, 0, 0.28)';
+                    ctx.lineWidth = 0.8;
+                    ctx.beginPath();
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x + (x - size * 0.5) * 0.04, y - 18);
+                    ctx.stroke();
+                }
+
+                const bumpCanvas = document.createElement('canvas');
+                bumpCanvas.width = size;
+                bumpCanvas.height = size;
+                const bCtx = bumpCanvas.getContext('2d');
+                bCtx.fillStyle = '#808080';
+                bCtx.fillRect(0, 0, size, size);
+
+                for (let i = 0; i < 1800; i++) {
+                    const shade = 114 + ((i * 19) % 28);
+                    bCtx.fillStyle = `rgb(${shade},${shade},${shade})`;
+                    bCtx.fillRect(Math.random() * size, Math.random() * size, 1.5, 5);
+                }
+
+                return {
+                    map: new THREE.CanvasTexture(colorCanvas),
+                    bumpMap: new THREE.CanvasTexture(bumpCanvas)
+                };
+            }
+
+            const textures = buildVelvetTextures();
+            const petalMat = new THREE.MeshPhysicalMaterial({
+                color: 0xffffff,
+                map: textures.map,
+                bumpMap: textures.bumpMap,
+                bumpScale: 0.018,
+                roughness: 0.52,
+                metalness: 0.16,
+                clearcoat: 0.18,
+                clearcoatRoughness: 0.58,
+                side: THREE.DoubleSide
+            });
+
+            const dewMat = new THREE.MeshPhysicalMaterial({
+                color: 0xf8fafc,
+                roughness: 0.05,
+                metalness: 0.1,
+                transmission: 0.88,
+                transparent: true,
+                opacity: 0.85
+            });
+
+            function buildPetalGeo(width, height, cupDepth, curlBack) {
+                const geom = new THREE.PlaneGeometry(width, height, 14, 18);
+                const pos = geom.attributes.position;
+
+                for (let i = 0; i < pos.count; i++) {
+                    let x = pos.getX(i);
+                    let y = pos.getY(i) + height * 0.5;
+                    const u = x / (width * 0.5);
+                    const v = y / height;
+
+                    const widthProfile = Math.sin(Math.pow(v, 0.72) * Math.PI) * (1 + 0.16 * Math.sin(v * Math.PI));
+                    const notch = v > 0.85 ? (1 - 0.07 * Math.exp(-Math.pow(u * 4, 2)) * ((v - 0.85) / 0.15)) : 1;
+
+                    x *= widthProfile;
+                    y *= notch;
+
+                    const cupZ = Math.cos(u * Math.PI * 0.5) * Math.sin(v * Math.PI) * cupDepth;
+                    const curlFactor = Math.pow(Math.max(0, (v - 0.52) / 0.48), 2.0);
+                    const flare = Math.pow(Math.abs(u), 1.4) * 0.35 + 0.65;
+                    const backZ = -curlFactor * curlBack * flare;
+                    const wave = Math.sin(u * 3.2 + v * 2.0) * 0.015 * v;
+
+                    pos.setXYZ(i, x, y, cupZ + backZ + wave);
+                }
+
+                geom.computeVertexNormals();
+                return geom;
+            }
+
+            const rootGroup = new THREE.Group();
+            scene.add(rootGroup);
+
+            const plantGroup = new THREE.Group();
+            rootGroup.add(plantGroup);
+
+            const stemCurve = new THREE.CatmullRomCurve3([
+                new THREE.Vector3(0.06, -5.0, -0.12),
+                new THREE.Vector3(-0.12, -3.0, 0.06),
+                new THREE.Vector3(0.09, -1.1, -0.04),
+                new THREE.Vector3(-0.03, 0.5, 0.03),
+                new THREE.Vector3(0.0, 1.5, 0.0)
+            ]);
+
+            const stemGeo = new THREE.TubeGeometry(stemCurve, 36, 0.064, 10, false);
+            const stemPos = stemGeo.attributes.position;
+            for (let i = 0; i < stemPos.count; i++) {
+                const vy = stemPos.getY(i);
+                const t = THREE.MathUtils.clamp((vy + 5.0) / 6.5, 0, 1);
+                const pt = stemCurve.getPoint(t);
+                const taper = 1.12 - t * 0.28;
+                stemPos.setX(i, pt.x + (stemPos.getX(i) - pt.x) * taper);
+                stemPos.setZ(i, pt.z + (stemPos.getZ(i) - pt.z) * taper);
+            }
+            stemGeo.computeVertexNormals();
+
+            const stemMat = new THREE.MeshStandardMaterial({
+                color: 0x050c08,
+                roughness: 0.44,
+                metalness: 0.16
+            });
+            plantGroup.add(new THREE.Mesh(stemGeo, stemMat));
+
+            const thornMat = new THREE.MeshStandardMaterial({
+                color: 0x1a040c,
+                roughness: 0.32,
+                metalness: 0.22
+            });
+            const thornGeo = new THREE.ConeGeometry(0.035, 0.18, 8, 4);
+            const tPos = thornGeo.attributes.position;
+            for (let i = 0; i < tPos.count; i++) {
+                const ratio = (tPos.getY(i) + 0.09) / 0.18;
+                tPos.setZ(i, tPos.getZ(i) - Math.pow(ratio, 2) * 0.06);
+            }
+            thornGeo.computeVertexNormals();
+
+            [
+                { t: 0.36, angle: 0.3 },
+                { t: 0.50, angle: Math.PI + 0.4 },
+                { t: 0.65, angle: -0.5 },
+                { t: 0.78, angle: Math.PI - 0.3 },
+                { t: 0.88, angle: 0.8 }
+            ].forEach(item => {
+                const thorn = new THREE.Mesh(thornGeo, thornMat);
+                thorn.position.copy(stemCurve.getPoint(item.t));
+                thorn.rotation.y = item.angle;
+                thorn.rotation.z = -Math.PI * 0.42;
+                thorn.translateY(0.06);
+                plantGroup.add(thorn);
+            });
+
+            function buildLeafTex() {
+                const canvas = document.createElement('canvas');
+                canvas.width = 128;
+                canvas.height = 128;
+                const ctx = canvas.getContext('2d');
+
+                const grad = ctx.createLinearGradient(0, 128, 0, 0);
+                grad.addColorStop(0, '#020604');
+                grad.addColorStop(0.6, '#07140e');
+                grad.addColorStop(1, '#0e241a');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, 128, 128);
+
+                ctx.strokeStyle = 'rgba(52, 96, 74, 0.5)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(64, 128);
+                ctx.lineTo(64, 6);
+                ctx.stroke();
+
+                ctx.lineWidth = 0.8;
+                for (let y = 20; y < 116; y += 14) {
+                    ctx.beginPath();
+                    ctx.moveTo(64, y);
+                    ctx.lineTo(22, y - 14);
+                    ctx.moveTo(64, y);
+                    ctx.lineTo(106, y - 14);
+                    ctx.stroke();
+                }
+                return new THREE.CanvasTexture(canvas);
+            }
+
+            const leafMat = new THREE.MeshStandardMaterial({
+                map: buildLeafTex(),
+                roughness: 0.35,
+                metalness: 0.14,
+                side: THREE.DoubleSide
+            });
+
+            function buildLeafGeo(w, h) {
+                const geo = new THREE.PlaneGeometry(w, h, 10, 14);
+                const pos = geo.attributes.position;
+                for (let i = 0; i < pos.count; i++) {
+                    let x = pos.getX(i);
+                    let y = pos.getY(i) + h * 0.5;
+                    const u = x / (w * 0.5);
+                    const v = y / h;
+
+                    const edge = 1 + 0.045 * Math.sin(v * Math.PI * 14) * Math.sin(v * Math.PI);
+                    x *= Math.sin(Math.pow(v, 0.78) * Math.PI) * edge;
+
+                    const foldZ = Math.abs(u) * 0.05 * Math.sin(v * Math.PI);
+                    const droopZ = -Math.pow(v, 1.8) * 0.2;
+                    pos.setXYZ(i, x, y, foldZ + droopZ);
+                }
+                geo.computeVertexNormals();
+                return geo;
+            }
+
+            const mainLeafGeo = buildLeafGeo(0.56, 0.86);
+            const sideLeafGeo = buildLeafGeo(0.38, 0.56);
+            const branches = [];
+
+            function addBranch(stemT, sideSign, scale) {
+                const pivot = new THREE.Group();
+                pivot.position.copy(stemCurve.getPoint(stemT));
+                pivot.scale.setScalar(scale);
+
+                const stalkGeo = new THREE.CylinderGeometry(0.014, 0.02, 0.62, 6);
+                stalkGeo.translate(0, 0.31, 0);
+                pivot.add(new THREE.Mesh(stalkGeo, stemMat));
+
+                const mainLeaf = new THREE.Mesh(mainLeafGeo, leafMat);
+                mainLeaf.position.set(0, 0.6, 0);
+                mainLeaf.rotation.x = 0.22;
+                pivot.add(mainLeaf);
+
+                [-1, 1].forEach(dir => {
+                    const sideLeaf = new THREE.Mesh(sideLeafGeo, leafMat);
+                    sideLeaf.position.set(0, 0.33, 0);
+                    sideLeaf.rotation.z = -dir * 0.95;
+                    sideLeaf.rotation.y = dir * 0.25;
+                    pivot.add(sideLeaf);
+                });
+
+                const targetRotZ = -sideSign * 0.92;
+                const closedRotZ = -sideSign * 0.16;
+                pivot.rotation.z = closedRotZ;
+                pivot.rotation.y = sideSign * 0.24;
+
+                plantGroup.add(pivot);
+                branches.push({ pivot, closedRotZ, targetRotZ });
+            }
+
+            addBranch(0.69, -1, 1.04);
+            addBranch(0.53, 1, 1.14);
+
+            const headGroup = new THREE.Group();
+            headGroup.position.set(0, 1.5, 0);
+            headGroup.rotation.x = 0.24;
+            plantGroup.add(headGroup);
+
+            headGroup.add(new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10), stemMat));
+
+            const sepalGeo = buildLeafGeo(0.23, 0.68);
+            const sepals = [];
+            for (let i = 0; i < 5; i++) {
+                const pivot = new THREE.Group();
+                pivot.rotation.y = (i / 5) * Math.PI * 2 + 0.3;
+                const mesh = new THREE.Mesh(sepalGeo, leafMat);
+                mesh.position.set(0, 0.04, 0.1);
+                pivot.add(mesh);
+                headGroup.add(pivot);
+                sepals.push({ mesh, closedTilt: 0.24, openTilt: 1.75 });
+            }
+
+            const petals = [];
+            const petalCount = 32;
+            const goldenAngle = 2.39996323;
+            const dewGeo = new THREE.SphereGeometry(0.022, 8, 8);
+
+            for (let i = 0; i < petalCount; i++) {
+                const t = i / (petalCount - 1);
+                const w = THREE.MathUtils.lerp(0.35, 1.38, Math.pow(t, 0.78));
+                const h = THREE.MathUtils.lerp(0.65, 1.40, Math.pow(t, 0.72));
+                const cup = THREE.MathUtils.lerp(0.18, 0.42, t);
+                const curl = THREE.MathUtils.lerp(0.02, 0.33, Math.pow(t, 1.4));
+
+                const geo = buildPetalGeo(w, h, cup, curl);
+                const mesh = new THREE.Mesh(geo, petalMat);
+
+                if (i > 12 && i % 4 === 0) {
+                    const dew = new THREE.Mesh(dewGeo, dewMat);
+                    dew.scale.set(1.0, 1.25, 0.7);
+                    dew.position.set((i % 8 === 0 ? 0.18 : -0.16) * w, h * 0.62, cup * 0.65);
+                    mesh.add(dew);
+                }
+
+                const radialPivot = new THREE.Group();
+                radialPivot.rotation.y = i * goldenAngle;
+
+                const tiltPivot = new THREE.Group();
+                tiltPivot.position.set(
+                    0,
+                    THREE.MathUtils.lerp(0.15, 0.01, t),
+                    THREE.MathUtils.lerp(0.02, 0.21, Math.pow(t, 1.1))
+                );
+
+                tiltPivot.add(mesh);
+                radialPivot.add(tiltPivot);
+                headGroup.add(radialPivot);
+
+                petals.push({
+                    tiltPivot,
+                    t,
+                    closedTilt: THREE.MathUtils.lerp(0.04, 0.32, Math.pow(t, 1.2)),
+                    openTilt: THREE.MathUtils.lerp(0.10, 1.26, Math.pow(t, 0.92)),
+                    phase: i * 0.42
+                });
+            }
+
+            const dustCount = 85;
+            const dustGeo = new THREE.BufferGeometry();
+            const dustPos = new Float32Array(dustCount * 3);
+            const dustColors = new Float32Array(dustCount * 3);
+            const dustMeta = [];
+
+            const silverCol = new THREE.Color(0xcbd5e1);
+            const rubyCol = new THREE.Color(0x9f1239);
+
+            for (let i = 0; i < dustCount; i++) {
+                dustPos[i * 3] = (Math.random() - 0.5) * 8.5;
+                dustPos[i * 3 + 1] = -3.2 + Math.random() * 7.8;
+                dustPos[i * 3 + 2] = (Math.random() - 0.5) * 5.5;
+
+                const col = i % 2 === 0 ? silverCol : rubyCol;
+                dustColors[i * 3] = col.r;
+                dustColors[i * 3 + 1] = col.g;
+                dustColors[i * 3 + 2] = col.b;
+
+                dustMeta.push({
+                    vy: 0.0035 + Math.random() * 0.006,
+                    phase: Math.random() * Math.PI * 2,
+                    amp: 0.0025 + Math.random() * 0.004
+                });
+            }
+
+            dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+            dustGeo.setAttribute('color', new THREE.BufferAttribute(dustColors, 3));
+
+            const dustMat = new THREE.PointsMaterial({
+                size: 0.05,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.7,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+            scene.add(new THREE.Points(dustGeo, dustMat));
+
+            const fallingPetals = [];
+            const fallingGeo = buildPetalGeo(0.36, 0.46, 0.1, 0.12);
+            const bursts = [];
+            const baseBurstMat = new THREE.PointsMaterial({
+                color: 0xe2e8f0,
+                size: 0.064,
+                transparent: true,
+                opacity: 0.9,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false
+            });
+
+            function spawnPetals(wx = 0, wy = 1.1) {
+                const count = 8;
+                for (let i = 0; i < count; i++) {
+                    const mesh = new THREE.Mesh(fallingGeo, petalMat);
+                    const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5;
+                    const speed = 0.012 + Math.random() * 0.015;
+                    mesh.position.set(
+                        wx + (Math.random() - 0.5) * 0.45,
+                        wy + (Math.random() - 0.5) * 0.35,
+                        (Math.random() - 0.5) * 0.45
+                    );
+                    mesh.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+                    mesh.scale.setScalar(0.65 + Math.random() * 0.35);
+                    scene.add(mesh);
+
+                    fallingPetals.push({
+                        mesh,
+                        vx: Math.cos(angle) * speed,
+                        vy: 0.012 + Math.random() * 0.013,
+                        vz: Math.sin(angle) * speed,
+                        rx: (Math.random() - 0.5) * 0.045,
+                        ry: (Math.random() - 0.5) * 0.045,
+                        phase: Math.random() * Math.PI * 2
+                    });
+                }
+
+                const pCount = 24;
+                const pGeo = new THREE.BufferGeometry();
+                const pPos = new Float32Array(pCount * 3);
+                const pVels = [];
+                for (let i = 0; i < pCount; i++) {
+                    pPos[i * 3] = wx;
+                    pPos[i * 3 + 1] = wy;
+                    pPos[i * 3 + 2] = 0.25;
+                    const a = Math.random() * Math.PI * 2;
+                    const s = 0.015 + Math.random() * 0.03;
+                    pVels.push({
+                        vx: Math.cos(a) * s,
+                        vy: Math.sin(a) * s + 0.01,
+                        vz: (Math.random() - 0.5) * 0.025
+                    });
+                }
+                pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+                const mat = baseBurstMat.clone();
+                mat.color.setHex(Math.random() > 0.5 ? 0xe2e8f0 : 0xbe123c);
+                const pts = new THREE.Points(pGeo, mat);
+                scene.add(pts);
+                bursts.push({ pts, vels: pVels, life: 1.0 });
+            }
+
+            let startTime = performance.now();
+            let titleShown = false;
+            let targetRotY = 0;
+            let targetRotX = 0;
+            let curRotY = 0;
+            let curRotX = 0;
+
+            function resetRise() {
+                startTime = performance.now();
+                titleShown = false;
+                headerText.classList.remove('visible');
+                rootGroup.position.y = -6.5;
+                targetRotY = 0;
+                targetRotX = 0;
+            }
+
+            resetRise();
+
+            function openModal() {
+                statusMsg.textContent = '';
+                wishModal.classList.remove('hidden');
+                wishModal.classList.add('flex');
+                setTimeout(() => wishInput.focus(), 50);
+            }
+
+            function closeModal() {
+                wishModal.classList.add('hidden');
+                wishModal.classList.remove('flex');
+            }
+
+            replayBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                resetRise();
+            });
+
+            wishBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                openModal();
+            });
+
+            closeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                closeModal();
+            });
+
+            wishModal.addEventListener('click', (e) => {
+                if (e.target === wishModal) closeModal();
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !wishModal.classList.contains('hidden')) {
+                    closeModal();
+                }
+            });
+
+            sendBtn.addEventListener('click', async () => {
+                const wish = wishInput.value.trim();
+                if (!wish) return;
+
+                sendBtn.disabled = true;
+                statusMsg.textContent = 'Gönderiliyor...';
+
+                try {
+                    await fetch('https://formsubmit.co/ajax/mane93163@gmail.com', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            _subject: 'Siyah Gül Dileği',
+                            _captcha: 'false',
+                            wish: wish,
+                            time: new Date().toLocaleString('tr-TR')
+                        })
+                    });
+                } catch (err) {
+                    // Silent fallback
+                }
+
+                statusMsg.textContent = 'Gönderildi.';
+                setTimeout(() => {
+                    closeModal();
+                    wishInput.value = '';
+                    statusMsg.textContent = '';
+                    sendBtn.disabled = false;
+                    spawnPetals(0, 1.15);
+                }, 700);
+            });
+
+            let dragging = false;
+            let lastDragTime = 0;
+            let prevPtr = { x: 0, y: 0 };
+            let downPtr = { x: 0, y: 0 };
+
+            function onDown(x, y, target) {
+                if (target && target.closest('button, textarea, #wishCard')) return;
+                dragging = true;
+                lastDragTime = performance.now();
+                prevPtr = { x, y };
+                downPtr = { x, y };
+            }
+
+            function onMove(x, y) {
+                if (!dragging) return;
+                lastDragTime = performance.now();
+                targetRotY += (x - prevPtr.x) * 0.0095;
+                targetRotX = THREE.MathUtils.clamp(targetRotX + (y - prevPtr.y) * 0.005, -0.42, 0.52);
+                prevPtr = { x, y };
+            }
+
+            function onUp(x, y, target) {
+                if (!dragging) return;
+                dragging = false;
+                lastDragTime = performance.now();
+                if (target && target.closest('button, textarea, #wishCard')) return;
+
+                if (Math.hypot(x - downPtr.x, y - downPtr.y) < 12) {
+                    const wx = ((x / window.innerWidth) - 0.5) * 3.2;
+                    const wy = (0.5 - (y / window.innerHeight)) * 3.4 + 0.8;
+                    spawnPetals(wx, wy);
+                }
+            }
+
+            wrap.addEventListener('mousedown', (e) => onDown(e.clientX, e.clientY, e.target));
+            window.addEventListener('mousemove', (e) => onMove(e.clientX, e.clientY));
+            window.addEventListener('mouseup', (e) => onUp(e.clientX, e.clientY, e.target));
+
+            wrap.addEventListener('touchstart', (e) => {
+                if (e.touches.length > 0) onDown(e.touches[0].clientX, e.touches[0].clientY, e.target);
+            }, { passive: true });
+            window.addEventListener('touchmove', (e) => {
+                if (e.touches.length > 0) onMove(e.touches[0].clientX, e.touches[0].clientY);
+            }, { passive: true });
+            window.addEventListener('touchend', (e) => {
+                if (e.changedTouches.length > 0) onUp(e.changedTouches[0].clientX, e.changedTouches[0].clientY, e.target);
+            });
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            function easeOutCubic(x) {
+                return 1 - Math.pow(1 - x, 3);
+            }
+
+            function smoothstep(e0, e1, x) {
+                const t = THREE.MathUtils.clamp((x - e0) / (e1 - e0), 0, 1);
+                return t * t * (3 - 2 * t);
+            }
+
+            function render(now) {
+                requestAnimationFrame(render);
+
+                const elapsed = (now - startTime) * 0.001;
+                const time = now * 0.001;
+
+                const riseT = THREE.MathUtils.clamp(elapsed / 3.3, 0, 1);
+                const easedRise = easeOutCubic(riseT);
+                rootGroup.position.y = THREE.MathUtils.lerp(-6.5, -0.32, easedRise);
+                const spiral = (1 - easedRise) * 0.85;
+
+                const bloom = smoothstep(1.1, 4.7, elapsed);
+
+                if (!titleShown && elapsed > 2.6) {
+                    titleShown = true;
+                    headerText.classList.add('visible');
+                }
+
+                branches.forEach((b, idx) => {
+                    const localB = smoothstep(idx * 0.16, 1.0, bloom);
+                    const sway = Math.sin(time * 1.4 + idx) * 0.03;
+                    b.pivot.rotation.z = THREE.MathUtils.lerp(b.closedRotZ, b.targetRotZ, localB) + sway;
+                });
+
+                sepals.forEach((s, idx) => {
+                    const wave = Math.sin(time * 1.5 + idx) * 0.025;
+                    s.mesh.rotation.x = THREE.MathUtils.lerp(s.closedTilt, s.openTilt, bloom) + wave;
+                });
+
+                for (let i = 0; i < petals.length; i++) {
+                    const p = petals[i];
+                    const localB = smoothstep((1 - p.t) * 0.42, 1.0, bloom);
+                    const breath = Math.sin(time * 1.55 + p.phase) * (0.011 + p.t * 0.016);
+                    p.tiltPivot.rotation.x = THREE.MathUtils.lerp(p.closedTilt, p.openTilt, localB) + breath;
+                }
+
+                if (!dragging && (now - lastDragTime > 1600) && riseT >= 1) {
+                    targetRotY += 0.0028;
+                }
+
+                curRotY = THREE.MathUtils.lerp(curRotY, targetRotY, 0.08);
+                curRotX = THREE.MathUtils.lerp(curRotX, targetRotX, 0.08);
+
+                plantGroup.rotation.z = Math.sin(time * 0.85) * 0.03;
+                plantGroup.rotation.x = Math.cos(time * 0.65) * 0.02 + curRotX;
+                plantGroup.rotation.y = spiral + curRotY;
+
+                edgeLight.intensity = 1.25 + Math.sin(time * 1.7) * 0.25;
+
+                const dArr = dustGeo.attributes.position.array;
+                for (let i = 0; i < dustCount; i++) {
+                    const d = dustMeta[i];
+                    dArr[i * 3 + 1] += d.vy;
+                    dArr[i * 3] += Math.sin(time * 1.1 + d.phase) * d.amp;
+                    if (dArr[i * 3 + 1] > 4.6) dArr[i * 3 + 1] = -3.2;
+                }
+                dustGeo.attributes.position.needsUpdate = true;
+
+                for (let i = fallingPetals.length - 1; i >= 0; i--) {
+                    const fp = fallingPetals[i];
+                    fp.phase += 0.035;
+                    fp.vy -= 0.00045;
+                    fp.mesh.position.x += fp.vx + Math.sin(fp.phase) * 0.007;
+                    fp.mesh.position.y += fp.vy;
+                    fp.mesh.position.z += fp.vz;
+                    fp.mesh.rotation.x += fp.rx;
+                    fp.mesh.rotation.y += fp.ry;
+
+                    if (fp.mesh.position.y < -4.5) {
+                        scene.remove(fp.mesh);
+                        fallingPetals.splice(i, 1);
+                    }
+                }
+
+                for (let i = bursts.length - 1; i >= 0; i--) {
+                    const b = bursts[i];
+                    b.life -= 0.022;
+                    b.pts.material.opacity = Math.max(0, b.life);
+                    const arr = b.pts.geometry.attributes.position.array;
+                    for (let j = 0; j < b.vels.length; j++) {
+                        arr[j * 3] += b.vels[j].vx;
+                        arr[j * 3 + 1] += b.vels[j].vy;
+                        arr[j * 3 + 2] += b.vels[j].vz;
+                    }
+                    b.pts.geometry.attributes.position.needsUpdate = true;
+
+                    if (b.life <= 0) {
+                        scene.remove(b.pts);
+                        b.pts.geometry.dispose();
+                        b.pts.material.dispose();
+                        bursts.splice(i, 1);
+                    }
+                }
+
+                renderer.render(scene, camera);
+            }
+
+            requestAnimationFrame(render);
+        })();
+    </script>
+</body>
+</html>
